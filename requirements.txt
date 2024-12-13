@@ -6,3 +6,4 @@ numpy
 streamlit
 openpyxl
 opencv-python-headless
+streamlit-drawable-canvas
