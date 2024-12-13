@@ -5,3 +5,4 @@ plotly
 numpy
 streamlit
 openpyxl
+opencv-python-headless
