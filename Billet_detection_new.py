@@ -24,6 +24,9 @@ def main():
         st.subheader("Original Image")
         st.image(image, caption="Uploaded Image", use_column_width=True)
 
+        # Convert the NumPy array to a format compatible with st_canvas
+        background_image = image_np if image_np.size > 0 else None
+
         # Interactive cropping section
         st.subheader("Interactive Cropping")
         st.write("Draw a rectangle to crop the desired area of the image.")
@@ -33,7 +36,7 @@ def main():
             fill_color="rgba(255, 165, 0, 0.3)",  # Transparent orange fill for rectangle
             stroke_width=2,
             stroke_color="blue",  # Outline color
-            background_image=image_np,  # Pass the image as a NumPy array
+            background_image=background_image,  # Pass the image if valid
             update_streamlit=True,
             height=image_np.shape[0],
             width=image_np.shape[1],
