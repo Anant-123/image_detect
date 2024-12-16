@@ -32,7 +32,7 @@ def main():
             fill_color="rgba(255, 165, 0, 0.3)",  # Transparent orange fill for rectangle
             stroke_width=2,
             stroke_color="blue",  # Outline color
-            background_image=image,  # Background is the uploaded image
+            background_image=Image.open(uploaded_file)  # Background is the uploaded image
             update_streamlit=True,
             height=image.height,
             width=image.width,
