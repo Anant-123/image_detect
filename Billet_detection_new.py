@@ -28,14 +28,15 @@ def main():
         st.subheader("Interactive Cropping")
         st.write("Draw a rectangle to crop the desired area of the image.")
         
+        # Use st_canvas for cropping
         canvas_result = st_canvas(
             fill_color="rgba(255, 165, 0, 0.3)",  # Transparent orange fill for rectangle
             stroke_width=2,
             stroke_color="blue",  # Outline color
-            background_image=Image.open(uploaded_file)  # Background is the uploaded image
+            background_image=image_np,  # Pass the image as a NumPy array
             update_streamlit=True,
-            height=image.height,
-            width=image.width,
+            height=image_np.shape[0],
+            width=image_np.shape[1],
             drawing_mode="rect",  # Rectangle drawing mode
             key="crop_canvas",
         )
