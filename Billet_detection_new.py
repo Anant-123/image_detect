@@ -1,18 +1,13 @@
 import streamlit as st
+from streamlit_drawable_canvas import st_canvas
 from PIL import Image
 import numpy as np
 import cv2
 
-# Function to crop the image using slider values
-def crop_image(image, top, bottom, left, right):
-    height, width = image.shape[:2]
-    cropped_image = image[int(height * top):int(height * (1 - bottom)),
-                          int(width * left):int(width * (1 - right))]
-    return cropped_image
 
 # Main Streamlit app
 def main():
-    st.title("Billets Counting application")
+    st.title("Billets Counting Application with Interactive Cropping")
     
     # Upload image
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
@@ -25,71 +20,76 @@ def main():
         st.subheader("Original Image")
         st.image(image, caption="Uploaded Image", use_column_width=True)
 
-        # Crop the Image Section
-        st.subheader("Crop the Image")
-        col1, col2 = st.columns([2, 1])  # Side-by-side layout
+        # Interactive Cropping Section
+        st.subheader("Interactive Cropping Tool")
 
-        with col1:
-            st.write("### Cropping Controls")
-            top = st.slider("Top Crop (%)", 0.0, 0.5, 0.0, step=0.01)
-            bottom = st.slider("Bottom Crop (%)", 0.0, 0.5, 0.0, step=0.01)
-            left = st.slider("Left Crop (%)", 0.0, 0.5, 0.0, step=0.01)
-            right = st.slider("Right Crop (%)", 0.0, 0.5, 0.0, step=0.01)
-            cropped_image = crop_image(image_np, top, bottom, left, right)
-            
+        # Set up the canvas for cropping
+        canvas_result = st_canvas(
+            fill_color="rgba(255, 165, 0, 0.3)",  # Transparent orange
+            stroke_width=2,
+            stroke_color="blue",
+            background_image=image,
+            update_streamlit=True,
+            height=image.height,
+            width=image.width,
+            drawing_mode="rect",  # Rectangle tool
+            key="crop_canvas",
+        )
 
-        with col2:
-            ref_circle = cropped_image  # Initialize reference circle image
-            st.image(ref_circle, caption="Reference Circle", use_column_width=True)
+        # Process the cropped area
+        if canvas_result.json_data is not None:
+            for shape in canvas_result.json_data["objects"]:
+                if shape["type"] == "rect":
+                    # Get the bounding box of the rectangle
+                    left = int(shape["left"])
+                    top = int(shape["top"])
+                    width = int(shape["width"])
+                    height = int(shape["height"])
 
-        # Reference Circle Section
-        st.subheader("Reference Circle Selection")
-        col1, col2 = st.columns([2, 1])  # Side-by-side layout for reference circle
+                    # Crop the image using the bounding box
+                    cropped_image = image_np[top : top + height, left : left + width]
 
-        with col1:
-            st.write("### Reference Circle Controls")
-            ref_top = st.slider("Ref. Top Position (%)", 0.0, 1.0, 0.25, step=0.01)
-            ref_bottom = st.slider("Ref. Bottom Position (%)", 0.0, 1.0, 0.25, step=0.01)
-            ref_left = st.slider("Ref. Left Position (%)", 0.0, 1.0, 0.25, step=0.01)
-            ref_right = st.slider("Ref. Right Position (%)", 0.0, 1.0, 0.25, step=0.01)
-            ref_circle = crop_image(cropped_image, ref_top, ref_bottom, ref_left, ref_right)
-            
+                    # Display cropped image
+                    st.subheader("Cropped Image")
+                    st.image(cropped_image, caption="Cropped Area", use_column_width=True)
 
-        with col2:
-           st.image(ref_circle, caption="Selected Reference Circle", use_column_width=True)
-
+                    # Add Reference Circle Cropping Section
+                    st.subheader("Select Reference Circle")
+                    st.info("Draw another rectangle around the reference circle using the cropping tool.")
 
         # Radius Calculation and Cylinder Detection
-        #st.image(ref_circle, caption="Selected Reference Circle", use_column_width=True)
-        radius = (ref_circle.shape[0] + ref_circle.shape[1]) // 4
-        st.write(f"Estimated Radius: {radius} pixels")
+        if st.button("Detect Billets"):
+            try:
+                gray = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2GRAY)
+                blurred = cv2.GaussianBlur(gray, (11, 11), 0)
 
-        # Detect Cylinders
-        st.subheader("Detect Billets")
-        if st.button("Detect"):
-            gray = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2GRAY)
-            blurred = cv2.GaussianBlur(gray, (11, 11), 0)
+                # Estimate radius based on the cropped area
+                estimated_radius = min(cropped_image.shape[:2]) // 4
+                st.write(f"Estimated Radius: {estimated_radius} pixels")
 
-            circles = cv2.HoughCircles(
-                blurred,
-                cv2.HOUGH_GRADIENT,
-                dp=1.2,
-                minDist=radius * 1.5,
-                param1=50,
-                param2=30,
-                minRadius=int(radius * 0.8),
-                maxRadius=int(radius * 1.2),
-            )
+                # Detect cylinders
+                circles = cv2.HoughCircles(
+                    blurred,
+                    cv2.HOUGH_GRADIENT,
+                    dp=1.2,
+                    minDist=estimated_radius * 1.5,
+                    param1=50,
+                    param2=30,
+                    minRadius=int(estimated_radius * 0.8),
+                    maxRadius=int(estimated_radius * 1.2),
+                )
 
-            if circles is not None:
-                circles = np.round(circles[0, :]).astype("int")
-                for (x, y, r) in circles:
-                    cv2.circle(cropped_image, (x, y), r, (0, 255, 0), 2)
+                if circles is not None:
+                    circles = np.round(circles[0, :]).astype("int")
+                    for (x, y, r) in circles:
+                        cv2.circle(cropped_image, (x, y), r, (0, 255, 0), 2)
 
-                st.image(cropped_image, caption="Billets Cylinders", use_column_width=True)
-                st.success(f"Number of Billets Detected: {len(circles)}")
-            else:
-                st.warning("No Billets Detected")
+                    st.image(cropped_image, caption="Billets Detected", use_column_width=True)
+                    st.success(f"Number of Billets Detected: {len(circles)}")
+                else:
+                    st.warning("No Billets Detected.")
+            except NameError:
+                st.error("Please crop the image first before detecting billets.")
 
 # Run the Streamlit app
 if __name__ == "__main__":
