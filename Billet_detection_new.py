@@ -1,102 +1,56 @@
 import streamlit as st
 from PIL import Image
 import numpy as np
-import cv2
-from streamlit_drawable_canvas import st_canvas
 
-# Function to crop the image based on rectangle coordinates
+
 def crop_image_with_coords(image, x1, y1, x2, y2):
-    cropped_image = image[y1:y2, x1:x2]
-    return cropped_image
+    """
+    Crop an image using the provided coordinates.
+    Parameters:
+    - image: NumPy array of the image
+    - x1, y1: Top-left corner coordinates
+    - x2, y2: Bottom-right corner coordinates
+    """
+    return image[y1:y2, x1:x2]
 
-# Main Streamlit app
+
 def main():
-    st.title("Billets Counting Application with Interactive Cropping")
-    
+    st.title("Image Cropping Application Using 4 Corners")
+
     # Upload image
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
     if uploaded_file:
         # Open the image using PIL
         image = Image.open(uploaded_file)
-        image_np = np.array(image)  # Convert to NumPy array (for OpenCV operations)
+        image_np = np.array(image)  # Convert PIL image to NumPy array for processing
 
         # Display the original image
         st.subheader("Original Image")
         st.image(image, caption="Uploaded Image", use_column_width=True)
 
-        # Convert the NumPy array to a format compatible with st_canvas
-        background_image = image_np if image_np.size > 0 else None
+        # Get image dimensions
+        height, width = image_np.shape[:2]
 
-        # Interactive cropping section
-        st.subheader("Interactive Cropping")
-        st.write("Draw a rectangle to crop the desired area of the image.")
-        
-        # Use st_canvas for cropping
-        canvas_result = st_canvas(
-            fill_color="rgba(255, 165, 0, 0.3)",  # Transparent orange fill for rectangle
-            stroke_width=2,
-            stroke_color="blue",  # Outline color
-            background_image=background_image,  # Pass the image if valid
-            update_streamlit=True,
-            height=image_np.shape[0],
-            width=image_np.shape[1],
-            drawing_mode="rect",  # Rectangle drawing mode
-            key="crop_canvas",
-        )
+        st.subheader("Select 4 Corners for Cropping")
 
-        # Check if a rectangle was drawn
-        if canvas_result.json_data is not None:
-            objects = canvas_result.json_data["objects"]
-            if len(objects) > 0:
-                # Extract coordinates of the rectangle
-                rect_coords = objects[-1]  # Use the last drawn rectangle
-                x1, y1, width, height = (
-                    int(rect_coords["left"]),
-                    int(rect_coords["top"]),
-                    int(rect_coords["width"]),
-                    int(rect_coords["height"]),
-                )
-                x2, y2 = x1 + width, y1 + height
+        # Inputs for top-left and bottom-right corners
+        x1 = st.number_input("X1 (Top-left corner)", min_value=0, max_value=width, value=0)
+        y1 = st.number_input("Y1 (Top-left corner)", min_value=0, max_value=height, value=0)
+        x2 = st.number_input("X2 (Bottom-right corner)", min_value=0, max_value=width, value=width)
+        y2 = st.number_input("Y2 (Bottom-right corner)", min_value=0, max_value=height, value=height)
 
-                # Crop the image based on rectangle coordinates
-                cropped_image = crop_image_with_coords(image_np, x1, y1, x2, y2)
-
-                # Display the cropped image
+        # Crop and display the image when the button is clicked
+        if st.button("Crop Image"):
+            # Ensure valid coordinates
+            if x1 < x2 and y1 < y2:
+                cropped_image = crop_image_with_coords(image_np, int(x1), int(y1), int(x2), int(y2))
                 st.subheader("Cropped Image")
                 st.image(cropped_image, caption="Cropped Image", use_column_width=True)
+            else:
+                st.error("Invalid coordinates: Make sure X1 < X2 and Y1 < Y2.")
 
-                # Reference Circle Section
-                st.subheader("Reference Circle Selection")
-                radius = (width + height) // 4
-                st.write(f"Estimated Reference Circle Radius: {radius} pixels")
+        st.write("Adjust the coordinates using the inputs above to crop your image.")
 
-                # Detect Billets
-                st.subheader("Detect Billets")
-                if st.button("Detect"):
-                    gray = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2GRAY)
-                    blurred = cv2.GaussianBlur(gray, (11, 11), 0)
 
-                    circles = cv2.HoughCircles(
-                        blurred,
-                        cv2.HOUGH_GRADIENT,
-                        dp=1.2,
-                        minDist=radius * 1.5,
-                        param1=50,
-                        param2=30,
-                        minRadius=int(radius * 0.8),
-                        maxRadius=int(radius * 1.2),
-                    )
-
-                    if circles is not None:
-                        circles = np.round(circles[0, :]).astype("int")
-                        for (x, y, r) in circles:
-                            cv2.circle(cropped_image, (x, y), r, (0, 255, 0), 2)
-
-                        st.image(cropped_image, caption="Billets Detected", use_column_width=True)
-                        st.success(f"Number of Billets Detected: {len(circles)}")
-                    else:
-                        st.warning("No Billets Detected")
-
-# Run the Streamlit app
 if __name__ == "__main__":
     main()
